@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { FaList } from 'react-icons/fa';
 import { useMutation, useQuery } from '@apollo/client';
 import { GET_PROJECTS } from '../queries/projectQueries';
+import { ADD_PROJECT } from '../mutations/projectMutations';
+import { GET_CLIENTS } from '../queries/clientQueries';
+
 
 
 export default function AddProjectModal() {
@@ -11,12 +14,29 @@ export default function AddProjectModal() {
     const [clientId, setClientId] = useState('');
     const [status, setStatus] = useState('new');
 
+    const [addProject] = useMutation(ADD_PROJECT, {
+        variables: { name, description, clientId, status},
+        update(cache, { data: { addProject}}) {
+            const {projects} = cache.readQuery({ query: GET_PROJECTS});
+            cache.writeQuery({
+                query: GET_PROJECTS,
+                data: {projects: projects.concat([addProject])}
+            });
+        }
+    });
+
+  // Get clients for select
+  const {loading, error, data} = useQuery(GET_CLIENTS);
+
 
   const onSubmit= (e) => {
     e.preventDefault();
+
     if(name === '' || description === '' || status === '') {
         return alert("Please fill in all fields");
     }
+
+    addProject(name, description, clientId, status);
     
     setName('');
     setDescription('');
@@ -24,10 +44,16 @@ export default function AddProjectModal() {
     setClientId('');
   }
 
+  if(loading) return null;
+  if(error) return 'Something went wrong';
+
+
+
   return (
     <>
-       
-        <button type="button" 
+        {!loading && !error && (
+            <>
+                <button type="button" 
                 className="btn btn-primary" 
                 data-bs-toggle="modal" 
                 data-bs-target="#addProjectModal">
@@ -74,6 +100,20 @@ export default function AddProjectModal() {
                             <option value="completed">Completed</option>
                         </select>
                     </div>
+                    <div className="mb-3">
+                        <label className="form-label">Client</label>
+                        <select className="form-select" 
+                                id="clientId"
+                                value={clientId}
+                                onChange={(e) => setClientId(e.target.value)}>
+                            <option value="">Select Client</option>
+                            {data.clients.map((client) => (
+                                <option key={client.id} value={client.id}>
+                                    {client.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <button className="btn btn-primary"
                             data-bs-dismiss="modal" 
                             type="submit">
@@ -85,6 +125,9 @@ export default function AddProjectModal() {
             </div>
         </div>
         </div>
+            </>
+        )}
+        
     </>
   )
 }
